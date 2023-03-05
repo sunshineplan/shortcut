@@ -9,11 +9,11 @@ import (
 func TestMap(t *testing.T) {
 	cd, err := exec.LookPath("cd")
 	if err != nil {
-		t.Fatal(err)
+		cd = "cd"
 	}
 	echo, err := exec.LookPath("echo")
 	if err != nil {
-		t.Fatal(err)
+		echo = "echo"
 	}
 
 	json := `
@@ -60,6 +60,7 @@ func TestMap(t *testing.T) {
   ]
 }`
 	m := NewMap()
+	m.Store("e", Command("cd"))
 	if err := m.FromJSON([]byte(json)); err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +72,7 @@ func TestMap(t *testing.T) {
 		{"b", fmt.Sprintf("%s ..\n%s test", cd, echo)},
 		{"c", cd + " %s"},
 		{"d", fmt.Sprintf("%s %%s\n%s %%s", cd, echo)},
+		{"e", cd},
 	} {
 		if sc, ok := m.Load(testcase.key); ok {
 			if cmd := sc.String(); cmd != testcase.cmd {

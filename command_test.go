@@ -10,7 +10,7 @@ import (
 func TestCommand(t *testing.T) {
 	cd, err := exec.LookPath("cd")
 	if err != nil {
-		t.Fatal(err)
+		cd = "cd"
 	}
 	a := Command("cd", "%s")
 	cmd := a.cmd(context.Background(), "test")

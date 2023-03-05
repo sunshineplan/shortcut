@@ -16,11 +16,14 @@ var (
 	_ Shortcut = Cmds{}
 )
 
+// Cmd is a shortcut command consisting of a name and arguments.
 type Cmd struct {
 	name string
 	args []string
 }
 
+// Command returns a new Cmd with the specified name and arguments.
+// If the command fails to initialize, panic with the error.
 func Command(name string, arg ...string) Cmd {
 	cmd := Cmd{name, arg}
 	if err := cmd.cmd(context.Background()).Err; err != nil {
@@ -29,6 +32,8 @@ func Command(name string, arg ...string) Cmd {
 	return cmd
 }
 
+// UnmarshalJSON unmarshals the JSON representation of a Cmd.
+// If the command fails to initialize, return an error.
 func (c *Cmd) UnmarshalJSON(b []byte) error {
 	var cmd struct {
 		Name string
@@ -46,6 +51,7 @@ func (c *Cmd) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// MarshalJSON returns the JSON representation of a Cmd.
 func (c Cmd) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
@@ -58,6 +64,8 @@ func (c Cmd) MarshalJSON() ([]byte, error) {
 	)
 }
 
+// cmd returns an *exec.Cmd with the specified command and arguments.
+// If any arguments are passed, format them into the command's arguments.
 func (c Cmd) cmd(ctx context.Context, a ...any) *exec.Cmd {
 	if len(a) != 0 {
 		const sep = "|@$|"
@@ -72,28 +80,35 @@ func (c Cmd) cmd(ctx context.Context, a ...any) *exec.Cmd {
 	return cmd
 }
 
+// Run runs the command with the given arguments.
 func (c Cmd) Run(a ...any) error {
 	return c.RunContext(context.Background(), a...)
 }
 
+// RunContext runs the command with the given context and arguments.
 func (c Cmd) RunContext(ctx context.Context, a ...any) error {
 	cmd := c.cmd(ctx, a...)
 	log.Print(cmd)
 	return cmd.Run()
 }
 
+// String returns the command as a string.
 func (c Cmd) String() string {
 	return c.cmd(context.Background()).String()
 }
 
+// Cmds is a list of commands.
 type Cmds struct {
 	cmds []Cmd
 }
 
+// Commands returns a new Cmds with the specified commands.
 func Commands(cmd ...Cmd) Cmds {
 	return Cmds{cmd}
 }
 
+// UnmarshalJSON unmarshals the JSON representation of a Cmds.
+// If any command fails to initialize, return an error.
 func (c *Cmds) UnmarshalJSON(b []byte) error {
 	var cmd Cmd
 	if e1 := json.Unmarshal(b, &cmd); e1 == nil {
@@ -111,6 +126,9 @@ func (c *Cmds) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// MarshalJSON marshals the list of commands to JSON. If the list has only one
+// command, it marshals that command directly. Otherwise, it marshals the
+// list of commands.
 func (c Cmds) MarshalJSON() ([]byte, error) {
 	switch len(c.cmds) {
 	case 0:
@@ -122,6 +140,8 @@ func (c Cmds) MarshalJSON() ([]byte, error) {
 	}
 }
 
+// cmd processes the list of commands and returns a list of *exec.Cmd
+// objects. If arguments are provided, it substitutes them into the commands.
 func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd) {
 	if len(a) != 0 {
 		var args string
@@ -145,10 +165,12 @@ func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd) {
 	return
 }
 
+// Run executes the list of commands with the given arguments.
 func (c Cmds) Run(a ...any) error {
 	return c.RunContext(context.Background(), a...)
 }
 
+// RunContext executes the list of commands with the given context and arguments.
 func (c Cmds) RunContext(ctx context.Context, a ...any) error {
 	for _, cmd := range c.cmd(ctx, a...) {
 		log.Print(cmd)
@@ -159,6 +181,7 @@ func (c Cmds) RunContext(ctx context.Context, a ...any) error {
 	return nil
 }
 
+// String returns the string representation of the list of commands.
 func (c Cmds) String() string {
 	var b strings.Builder
 	for i, cmd := range c.cmds {
