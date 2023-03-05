@@ -2,65 +2,67 @@ package shortcut
 
 import (
 	"fmt"
-	"os/exec"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestMap(t *testing.T) {
-	cd, err := exec.LookPath("cd")
+	pwd, err := os.Getwd()
 	if err != nil {
-		cd = "cd"
+		t.Fatal(err)
 	}
-	echo, err := exec.LookPath("echo")
-	if err != nil {
-		echo = "echo"
+	test := filepath.Join(pwd, "shortcut")
+	if err := os.WriteFile(test, nil, 0640); err != nil {
+		t.Fatal(err)
 	}
+	defer os.Remove(test)
 
-	json := `
+	json := fmt.Sprintf(`
 {
   "a": {
-    "name": "cd",
+    "name": %q,
     "args": [
       ".."
     ]
   },
   "b": [
     {
-      "name": "cd",
+      "name": %[1]q,
       "args": [
         ".."
       ]
     },
     {
-      "name": "echo",
+      "name": %[1]q,
       "args": [
         "test"
       ]
     }
   ],
   "c": {
-    "name": "cd",
+    "name": %[1]q,
     "args": [
-      "%s"
+      "%%s"
     ]
   },
   "d": [
     {
-      "name": "cd",
+      "name": %[1]q,
       "args": [
-        "%s"
+        "%%s"
       ]
     },
     {
-      "name": "echo",
+      "name": %[1]q,
       "args": [
-        "%s"
+        "%%s"
       ]
     }
   ]
-}`
+}`, test)
 	m := NewMap()
-	m.Store("e", Command("cd"))
+	m.Store("e", Command(test))
 	if err := m.FromJSON([]byte(json)); err != nil {
 		t.Fatal(err)
 	}
@@ -68,11 +70,11 @@ func TestMap(t *testing.T) {
 		key Key
 		cmd string
 	}{
-		{"a", cd + " .."},
-		{"b", fmt.Sprintf("%s ..\n%s test", cd, echo)},
-		{"c", cd + " %s"},
-		{"d", fmt.Sprintf("%s %%s\n%s %%s", cd, echo)},
-		{"e", cd},
+		{"a", test + " .."},
+		{"b", fmt.Sprintf("%s ..\n%[1]s test", test)},
+		{"c", test + " %s"},
+		{"d", fmt.Sprintf("%s %%s\n%[1]s %%s", test)},
+		{"e", test},
 	} {
 		if sc, ok := m.Load(testcase.key); ok {
 			if cmd := sc.String(); cmd != testcase.cmd {
