@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 )
 
 var m shortcut.Map
+
+var list = flag.Bool("list", false, "list shortcuts")
 
 func init() {
 	var path string
@@ -37,6 +40,13 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *list {
+		m.Range(func(k shortcut.Key, s shortcut.Shortcut) bool {
+			fmt.Printf("%s:\n\t%s\n", k, s)
+			return true
+		})
+		return
+	}
 
 	switch flag.NArg() {
 	case 0:
