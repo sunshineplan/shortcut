@@ -59,10 +59,16 @@ func TestMap(t *testing.T) {
         "%%s"
       ]
     }
-  ]
+  ],
+  "e": {
+    "name": %[1]q,
+    "env": [
+      "TEST=test"
+    ]
+  }
 }`, test)
 	m := NewMap()
-	m.Store("e", Command(test))
+	m.Store("f", Command(test))
 	if err := m.FromJSON([]byte(json)); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +80,8 @@ func TestMap(t *testing.T) {
 		{"b", fmt.Sprintf("%s ..\n%[1]s test", test)},
 		{"c", test + " %s"},
 		{"d", fmt.Sprintf("%s %%s\n%[1]s %%s", test)},
-		{"e", test},
+		{"e", "TEST=test " + test},
+		{"f", test},
 	} {
 		if sc, ok := m.Load(testcase.key); ok {
 			if cmd := sc.String(); cmd != testcase.cmd {

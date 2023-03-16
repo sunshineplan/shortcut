@@ -20,7 +20,7 @@ func NewMap() *Map {
 // If no command is provided, it panics.
 // If only one command is provided, it is stored directly.
 // If multiple commands are provided, they are wrapped as a Cmds object and stored.
-func (m *Map) Store(key Key, cmd ...Cmd) {
+func (m *Map) Store(key Key, cmd ...*Cmd) {
 	switch len(cmd) {
 	case 0:
 		panic("no commands provided for key:" + key)

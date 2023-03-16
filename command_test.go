@@ -36,4 +36,9 @@ func TestCommand(t *testing.T) {
 	if expect := fmt.Sprintf("%s test1\n%[1]s test2", test); res != expect {
 		t.Errorf("expected %q; got %q", expect, res)
 	}
+	c := Command(test)
+	c.Env("TEST=test")
+	if expect := fmt.Sprintf("TEST=test %s", test); c.String() != expect {
+		t.Errorf("expected %q; got %q", expect, res)
+	}
 }

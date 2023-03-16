@@ -20,16 +20,27 @@ var (
 type Cmd struct {
 	name string
 	args []string
+	env  []string
 }
 
 // Command returns a new Cmd with the specified name and arguments.
 // If the command fails to initialize, panic with the error.
-func Command(name string, arg ...string) Cmd {
-	cmd := Cmd{name, arg}
+func Command(name string, arg ...string) *Cmd {
+	cmd := &Cmd{name, arg, nil}
 	if err := cmd.cmd(context.Background()).Err; err != nil {
 		panic(err)
 	}
 	return cmd
+}
+
+// Env sets the environment variables for the command.
+// The environment variables are specified as a slice of strings,
+// with each string being in the form of "key=value".
+// If multiple values are specified for the same key,
+// the last one takes precedence.
+// If env is empty, the environment variables of the parent process are used.
+func (c *Cmd) Env(env ...string) {
+	c.env = env
 }
 
 // UnmarshalJSON unmarshals the JSON representation of a Cmd.
@@ -38,11 +49,12 @@ func (c *Cmd) UnmarshalJSON(b []byte) error {
 	var cmd struct {
 		Name string
 		Args []string
+		Env  []string
 	}
 	if err := json.Unmarshal(b, &cmd); err != nil {
 		return err
 	} else {
-		cmd := Cmd{cmd.Name, cmd.Args}
+		cmd := Cmd{cmd.Name, cmd.Args, cmd.Env}
 		if err := cmd.cmd(context.Background()).Err; err != nil {
 			return err
 		}
@@ -57,9 +69,11 @@ func (c Cmd) MarshalJSON() ([]byte, error) {
 		struct {
 			Name string   `json:"name"`
 			Args []string `json:"args"`
+			Env  []string `json:"env"`
 		}{
 			c.name,
 			c.args,
+			c.env,
 		},
 	)
 }
@@ -74,6 +88,9 @@ func (c Cmd) cmd(ctx context.Context, a ...any) *exec.Cmd {
 		c.args = strings.Split(args, sep)
 	}
 	cmd := exec.CommandContext(ctx, c.name, c.args...)
+	if len(c.env) != 0 {
+		cmd.Env = append(os.Environ(), c.env...)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -94,16 +111,24 @@ func (c Cmd) RunContext(ctx context.Context, a ...any) error {
 
 // String returns the command as a string.
 func (c Cmd) String() string {
-	return c.cmd(context.Background()).String()
+	var b strings.Builder
+	if len(c.env) != 0 {
+		for _, i := range c.env {
+			b.WriteString(i)
+			b.WriteRune(' ')
+		}
+	}
+	b.WriteString(c.cmd(context.Background()).String())
+	return b.String()
 }
 
 // Cmds is a list of commands.
 type Cmds struct {
-	cmds []Cmd
+	cmds []*Cmd
 }
 
 // Commands returns a new Cmds with the specified commands.
-func Commands(cmd ...Cmd) Cmds {
+func Commands(cmd ...*Cmd) Cmds {
 	return Cmds{cmd}
 }
 
@@ -112,9 +137,9 @@ func Commands(cmd ...Cmd) Cmds {
 func (c *Cmds) UnmarshalJSON(b []byte) error {
 	var cmd Cmd
 	if e1 := json.Unmarshal(b, &cmd); e1 == nil {
-		*c = Cmds{[]Cmd{cmd}}
+		*c = Cmds{[]*Cmd{&cmd}}
 	} else {
-		var cmds []Cmd
+		var cmds []*Cmd
 		if e2 := json.Unmarshal(b, &cmds); e2 != nil {
 			return errors.Join(e1, e2)
 		}
