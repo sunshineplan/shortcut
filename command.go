@@ -27,7 +27,7 @@ type Cmd struct {
 // If the command fails to initialize, panic with the error.
 func Command(name string, arg ...string) *Cmd {
 	cmd := &Cmd{name, arg, nil}
-	if err := cmd.cmd(context.Background()).Err; err != nil {
+	if err := cmd.test(); err != nil {
 		panic(err)
 	}
 	return cmd
@@ -55,7 +55,7 @@ func (c *Cmd) UnmarshalJSON(b []byte) error {
 		return err
 	} else {
 		cmd := Cmd{cmd.Name, cmd.Args, cmd.Env}
-		if err := cmd.cmd(context.Background()).Err; err != nil {
+		if err := cmd.test(); err != nil {
 			return err
 		}
 		*c = cmd
@@ -78,9 +78,14 @@ func (c Cmd) MarshalJSON() ([]byte, error) {
 	)
 }
 
+func (c Cmd) test() error {
+	cmd := exec.Command(c.name, c.args...)
+	return cmd.Err
+}
+
 // cmd returns an *exec.Cmd with the specified command and arguments.
 // If any arguments are passed, format them into the command's arguments.
-func (c Cmd) cmd(ctx context.Context, a ...any) *exec.Cmd {
+func (c Cmd) cmd(ctx context.Context, a ...any) (*exec.Cmd, []string) {
 	if len(a) != 0 {
 		const sep = "|@$|"
 		args := strings.Join(c.args, sep)
@@ -94,7 +99,7 @@ func (c Cmd) cmd(ctx context.Context, a ...any) *exec.Cmd {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd
+	return cmd, c.env
 }
 
 // Run runs the command with the given arguments.
@@ -104,22 +109,14 @@ func (c Cmd) Run(a ...any) error {
 
 // RunContext runs the command with the given context and arguments.
 func (c Cmd) RunContext(ctx context.Context, a ...any) error {
-	cmd := c.cmd(ctx, a...)
-	log.Print(cmd)
+	cmd, env := c.cmd(ctx, a...)
+	log.Print(cmdString(cmd, env))
 	return cmd.Run()
 }
 
 // String returns the command as a string.
 func (c Cmd) String() string {
-	var b strings.Builder
-	if len(c.env) != 0 {
-		for _, i := range c.env {
-			b.WriteString(i)
-			b.WriteRune(' ')
-		}
-	}
-	b.WriteString(c.cmd(context.Background()).String())
-	return b.String()
+	return cmdString(c.cmd(context.Background()))
 }
 
 // Cmds is a list of commands.
@@ -167,7 +164,7 @@ func (c Cmds) MarshalJSON() ([]byte, error) {
 
 // cmd processes the list of commands and returns a list of *exec.Cmd
 // objects. If arguments are provided, it substitutes them into the commands.
-func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd) {
+func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd, envs [][]string) {
 	if len(a) != 0 {
 		var args string
 		const sep, newline = "|@$|", "|@\n$|"
@@ -180,11 +177,15 @@ func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd) {
 		args = fmt.Sprintf(args, a...)
 		for i, cmd := range strings.Split(args, newline) {
 			c.cmds[i].args = strings.Split(cmd, sep)
-			cmds = append(cmds, c.cmds[i].cmd(ctx))
+			cmd, env := c.cmds[i].cmd(ctx)
+			cmds = append(cmds, cmd)
+			envs = append(envs, env)
 		}
 	} else {
 		for _, cmd := range c.cmds {
-			cmds = append(cmds, cmd.cmd(ctx))
+			cmd, env := cmd.cmd(ctx)
+			cmds = append(cmds, cmd)
+			envs = append(envs, env)
 		}
 	}
 	return
@@ -197,8 +198,9 @@ func (c Cmds) Run(a ...any) error {
 
 // RunContext executes the list of commands with the given context and arguments.
 func (c Cmds) RunContext(ctx context.Context, a ...any) error {
-	for _, cmd := range c.cmd(ctx, a...) {
-		log.Print(cmd)
+	cmds, envs := c.cmd(ctx, a...)
+	for i, cmd := range cmds {
+		log.Print(cmdString(cmd, envs[i]))
 		if err := cmd.Run(); err != nil {
 			return err
 		}
@@ -215,5 +217,17 @@ func (c Cmds) String() string {
 		}
 		b.WriteString(cmd.String())
 	}
+	return b.String()
+}
+
+func cmdString(cmd *exec.Cmd, env []string) string {
+	var b strings.Builder
+	if len(env) != 0 {
+		for _, i := range env {
+			b.WriteString(i)
+			b.WriteRune(' ')
+		}
+	}
+	b.WriteString(cmd.String())
 	return b.String()
 }

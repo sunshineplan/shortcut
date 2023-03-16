@@ -37,6 +37,9 @@ func TestMap(t *testing.T) {
       "name": %[1]q,
       "args": [
         "test"
+      ],
+	  "env": [
+        "TEST=test"
       ]
     }
   ],
@@ -77,7 +80,7 @@ func TestMap(t *testing.T) {
 		cmd string
 	}{
 		{"a", test + " .."},
-		{"b", fmt.Sprintf("%s ..\n%[1]s test", test)},
+		{"b", fmt.Sprintf("%s ..\nTEST=test %[1]s test", test)},
 		{"c", test + " %s"},
 		{"d", fmt.Sprintf("%s %%s\n%[1]s %%s", test)},
 		{"e", "TEST=test " + test},
