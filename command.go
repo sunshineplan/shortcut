@@ -19,14 +19,15 @@ var (
 // Cmd is a shortcut command consisting of a name and arguments.
 type Cmd struct {
 	name string
+	n    int
 	args []string
 	env  []string
 }
 
 // Command returns a new Cmd with the specified name and arguments.
 // If the command fails to initialize, panic with the error.
-func Command(name string, arg ...string) *Cmd {
-	cmd := &Cmd{name, arg, nil}
+func Command(name string, n int, arg ...string) *Cmd {
+	cmd := &Cmd{name, n, arg, nil}
 	if err := cmd.test(); err != nil {
 		panic(err)
 	}
@@ -48,13 +49,14 @@ func (c *Cmd) Env(env ...string) {
 func (c *Cmd) UnmarshalJSON(b []byte) error {
 	var cmd struct {
 		Name string
+		N    int
 		Args []string
 		Env  []string
 	}
 	if err := json.Unmarshal(b, &cmd); err != nil {
 		return err
 	} else {
-		cmd := Cmd{cmd.Name, cmd.Args, cmd.Env}
+		cmd := Cmd{cmd.Name, cmd.N, cmd.Args, cmd.Env}
 		if err := cmd.test(); err != nil {
 			return err
 		}
@@ -68,10 +70,12 @@ func (c Cmd) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
 			Name string   `json:"name"`
+			N    int      `json:"n"`
 			Args []string `json:"args"`
 			Env  []string `json:"env"`
 		}{
 			c.name,
+			c.n,
 			c.args,
 			c.env,
 		},
@@ -109,9 +113,16 @@ func (c Cmd) Run(a ...any) error {
 
 // RunContext runs the command with the given context and arguments.
 func (c Cmd) RunContext(ctx context.Context, a ...any) error {
+	if args, l := c.Args(), len(a); args != l {
+		return badArgs(args, l)
+	}
 	cmd, env := c.cmd(ctx, a...)
 	log.Print(cmdString(cmd, env))
 	return cmd.Run()
+}
+
+func (c Cmd) Args() int {
+	return c.n
 }
 
 // String returns the command as a string.
@@ -198,6 +209,9 @@ func (c Cmds) Run(a ...any) error {
 
 // RunContext executes the list of commands with the given context and arguments.
 func (c Cmds) RunContext(ctx context.Context, a ...any) error {
+	if args, l := c.Args(), len(a); args != l {
+		return badArgs(args, l)
+	}
 	cmds, envs := c.cmd(ctx, a...)
 	for i, cmd := range cmds {
 		log.Print(cmdString(cmd, envs[i]))
@@ -206,6 +220,13 @@ func (c Cmds) RunContext(ctx context.Context, a ...any) error {
 		}
 	}
 	return nil
+}
+
+func (c Cmds) Args() (n int) {
+	for _, i := range c.cmds {
+		n += i.n
+	}
+	return
 }
 
 // String returns the string representation of the list of commands.
@@ -218,6 +239,10 @@ func (c Cmds) String() string {
 		b.WriteString(cmd.String())
 	}
 	return b.String()
+}
+
+func badArgs(need, got int) error {
+	return fmt.Errorf("shortcut: bad args number; need %d, got %d", need, got)
 }
 
 func cmdString(cmd *exec.Cmd, env []string) string {

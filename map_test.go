@@ -71,7 +71,7 @@ func TestMap(t *testing.T) {
   }
 }`, test)
 	m := NewMap()
-	m.Store("f", Command(test))
+	m.Store("f", Command(test, 0))
 	if err := m.FromJSON([]byte(json)); err != nil {
 		t.Fatal(err)
 	}

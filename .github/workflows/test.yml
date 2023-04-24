@@ -23,6 +23,4 @@ jobs:
           go-version: stable
 
       - name: Test Code
-        run: |
-          go test -v ./...
-          go build -v ./...
+        run: make test

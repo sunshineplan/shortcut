@@ -19,12 +19,12 @@ func TestCommand(t *testing.T) {
 	}
 	defer os.Remove(test)
 
-	a := Command(test, "%s")
+	a := Command(test, 1, "%s")
 	cmd, _ := a.cmd(context.Background(), "test")
 	if cmd := cmd.String(); cmd != test+" test" {
 		t.Errorf("expected %q; got %q", test+" test", cmd)
 	}
-	b := Commands(Command(test, "%s"), Command(test, "%s"))
+	b := Commands(Command(test, 1, "%s"), Command(test, 1, "%s"))
 	cmds, _ := b.cmd(context.Background(), "test1", "test2")
 	var res string
 	for i, cmd := range cmds {
@@ -36,7 +36,7 @@ func TestCommand(t *testing.T) {
 	if expect := fmt.Sprintf("%s test1\n%[1]s test2", test); res != expect {
 		t.Errorf("expected %q; got %q", expect, res)
 	}
-	c := Command(test)
+	c := Command(test, 0)
 	c.Env("TEST=test")
 	if expect := fmt.Sprintf("TEST=test %s", test); c.String() != expect {
 		t.Errorf("expected %q; got %q", expect, res)
