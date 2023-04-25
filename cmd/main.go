@@ -16,8 +16,9 @@ import (
 var (
 	m shortcut.Map
 
-	menu                 []shortcut.Key
-	maxKeyLength, number int
+	menu         []shortcut.Key
+	maxKeyLength int
+	keyNumber    int
 )
 
 var (
@@ -54,7 +55,7 @@ func init() {
 		menu = append(menu, k)
 		return true
 	})
-	for n := len(menu); n != 0; number++ {
+	for n := len(menu); n != 0; keyNumber++ {
 		n /= 10
 	}
 	sort.Slice(menu, func(i, j int) bool { return menu[i] < menu[j] })
@@ -84,9 +85,12 @@ func main() {
 		fmt.Print("\nPlease choose: ")
 		var choice string
 		fmt.Scan(&choice)
+		if strings.ToLower(choice) == "q" {
+			return
+		}
 		n, err := strconv.Atoi(choice)
 		if err != nil {
-			log.Fatalln("Bad choice:", choice)
+			log.Fatalln("bad choice:", choice)
 		}
 		if err := run(n); err != nil {
 			log.Fatal(err)
@@ -109,7 +113,7 @@ func main() {
 func print() {
 	for i, key := range menu {
 		sc, _ := m.Load(key)
-		fmt.Printf(fmt.Sprintf("%%%dd", number)+". %s  %s  %s\n", i+1, key, strings.Repeat(" ", maxKeyLength-len(key)), sc)
+		fmt.Printf(fmt.Sprintf("%%%dd", keyNumber)+". %s  %s  %s\n", i+1, key, strings.Repeat(" ", maxKeyLength-len(key)), sc)
 	}
 }
 
