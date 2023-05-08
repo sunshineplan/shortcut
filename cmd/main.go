@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -83,8 +84,9 @@ func main() {
 	case 0:
 		print()
 		fmt.Print("\nPlease choose: ")
-		var choice string
-		fmt.Scan(&choice)
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		choice := scanner.Text()
 		if strings.ToLower(choice) == "q" {
 			return
 		}
@@ -131,8 +133,9 @@ func run(choice int) error {
 		var a []any
 		for n := 1; n <= args; n++ {
 			fmt.Printf("Please input argument %d: ", n)
-			var arg string
-			fmt.Scan(&arg)
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			arg := scanner.Text()
 			a = append(a, arg)
 		}
 		return sc.Run(a...)

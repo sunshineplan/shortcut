@@ -19,7 +19,8 @@ shortcut.json
     "name": "ssh",
     "args": [
       "root@%s"
-    ]
+    ],
+    "n": 1
   }
 }
 ```
