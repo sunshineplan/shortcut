@@ -2,25 +2,18 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/sunshineplan/shortcut"
+	"github.com/sunshineplan/utils/choice"
 )
 
-var (
-	m shortcut.Map
-
-	menu         []shortcut.Key
-	maxKeyLength int
-	keyNumber    int
-)
+var m shortcut.Map
 
 var (
 	list = flag.Bool("list", false, "list shortcuts")
@@ -49,32 +42,26 @@ func init() {
 	if err := m.FromFile(path); err != nil {
 		log.Fatal(err)
 	}
-	m.Range(func(k shortcut.Key, s shortcut.Shortcut) bool {
-		if l := len(k); l > maxKeyLength {
-			maxKeyLength = l
-		}
-		menu = append(menu, k)
-		return true
-	})
-	for n := len(menu); n != 0; keyNumber++ {
-		n /= 10
-	}
-	sort.Slice(menu, func(i, j int) bool { return menu[i] < menu[j] })
 }
 
 func main() {
-	if len(menu) == 0 {
+	if m.Count() == 0 {
 		log.Print("no shortcut loaded")
 		return
 	}
 
 	flag.Parse()
 	if *list {
-		print()
+		fmt.Print(m.Menu(false))
 		return
 	}
 	if *id > 0 {
-		if err := run(*id); err != nil {
+		key, sc, err := m.Index(*id)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Run", key)
+		if err := run(sc); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -82,19 +69,20 @@ func main() {
 
 	switch flag.NArg() {
 	case 0:
-		print()
-		fmt.Print("\nPlease choose: ")
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		choice := scanner.Text()
-		if strings.ToLower(choice) == "q" {
+		fmt.Print(m.Menu(true))
+		ok, key, sc, err := m.Choose()
+		for i := 0; errors.Is(err, choice.ErrBadChoice); i++ {
+			fmt.Println(err)
+			if i != 0 && i%5 == 0 {
+				fmt.Print(m.Menu(true))
+			}
+			ok, key, sc, err = m.Choose()
+		}
+		if !ok {
 			return
 		}
-		n, err := strconv.Atoi(choice)
-		if err != nil {
-			log.Fatalln("bad choice:", choice)
-		}
-		if err := run(n); err != nil {
+		fmt.Println("Run", key)
+		if err := run(sc); err != nil {
 			log.Fatal(err)
 		}
 	default:
@@ -112,20 +100,7 @@ func main() {
 	}
 }
 
-func print() {
-	for i, key := range menu {
-		sc, _ := m.Load(key)
-		fmt.Printf(fmt.Sprintf("%%%dd", keyNumber)+". %s  %s  %s\n", i+1, key, strings.Repeat(" ", maxKeyLength-len(key)), sc)
-	}
-}
-
-func run(choice int) error {
-	if choice < 1 || choice > len(menu) {
-		return fmt.Errorf("bad choice: %d", choice)
-	}
-	key := menu[choice-1]
-	sc, _ := m.Load(key)
-	fmt.Println("Run", key)
+func run(sc shortcut.Shortcut) error {
 	if args := sc.Args(); args == 0 {
 		return sc.Run()
 	} else {

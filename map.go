@@ -1,9 +1,15 @@
 package shortcut
 
 import (
+	"cmp"
 	"encoding/json"
+	"fmt"
 	"os"
+	"slices"
+	"strings"
 	"sync"
+
+	"github.com/sunshineplan/utils/choice"
 )
 
 // Map is a shortcut map that associates Key with one or multiple Cmds.
@@ -73,4 +79,58 @@ func (m *Map) FromFile(file string) error {
 		return err
 	}
 	return m.FromJSON(b)
+}
+
+type pair struct {
+	key      Key
+	shortcut Shortcut
+	length   int
+}
+
+func (pair pair) String() string {
+	return fmt.Sprintf("%s  %s  %s", pair.key, strings.Repeat(" ", pair.length-len(pair.key)), pair.shortcut)
+}
+
+func (m *Map) pairs() (pairs []*pair) {
+	var maxKeyLength int
+	m.Range(func(k Key, s Shortcut) bool {
+		if l := len(k); l > maxKeyLength {
+			maxKeyLength = l
+		}
+		pairs = append(pairs, &pair{k, s, 0})
+		return true
+	})
+	for _, i := range pairs {
+		i.length = maxKeyLength
+	}
+	slices.SortStableFunc(pairs, func(a, b *pair) int { return cmp.Compare(a.key, b.key) })
+	return
+}
+
+func (m *Map) Count() int {
+	return len(m.pairs())
+}
+
+func (m *Map) Index(index int) (Key, Shortcut, error) {
+	if n := m.Count(); n == 0 {
+		return "", nil, fmt.Errorf("empty shortcut map")
+	} else if index < 1 || index > n {
+		return "", nil, fmt.Errorf("out of range(1-%d): %d", n, index)
+	}
+	pair := m.pairs()[index-1]
+	return pair.key, pair.shortcut, nil
+}
+
+func (m *Map) Menu(showQuit bool) string {
+	return choice.Menu(m.pairs(), showQuit)
+}
+
+func (m *Map) Choose() (bool, Key, Shortcut, error) {
+	choice, v, err := choice.Choose(m.pairs())
+	if err != nil {
+		return false, "", nil, err
+	} else if !choice {
+		return false, "", nil, nil
+	}
+	return true, v.key, v.shortcut, nil
 }
