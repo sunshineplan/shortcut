@@ -4,27 +4,21 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestCommand(t *testing.T) {
-	pwd, err := os.Getwd()
+	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	test := filepath.Join(pwd, "shortcut")
-	if err := os.WriteFile(test, nil, 0640); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(test)
 
-	a := Command(test, 1, "%s")
+	a := Command(self, 1, "%s")
 	cmd, _ := a.cmd(context.Background(), "test")
-	if cmd := cmd.String(); cmd != test+" test" {
-		t.Errorf("expected %q; got %q", test+" test", cmd)
+	if cmd := cmd.String(); cmd != self+" test" {
+		t.Errorf("expected %q; got %q", self+" test", cmd)
 	}
-	b := Commands(Command(test, 1, "%s"), Command(test, 1, "%s"))
+	b := Commands(Command(self, 1, "%s"), Command(self, 1, "%s"))
 	cmds, _ := b.cmd(context.Background(), "test1", "test2")
 	var res string
 	for i, cmd := range cmds {
@@ -33,12 +27,12 @@ func TestCommand(t *testing.T) {
 		}
 		res += cmd.String()
 	}
-	if expect := fmt.Sprintf("%s test1\n%[1]s test2", test); res != expect {
+	if expect := fmt.Sprintf("%s test1\n%[1]s test2", self); res != expect {
 		t.Errorf("expected %q; got %q", expect, res)
 	}
-	c := Command(test, 0)
+	c := Command(self, 0)
 	c.Env("TEST=test")
-	if expect := fmt.Sprintf("TEST=test %s", test); c.String() != expect {
+	if expect := fmt.Sprintf("TEST=test %s", self); c.String() != expect {
 		t.Errorf("expected %q; got %q", expect, res)
 	}
 }
