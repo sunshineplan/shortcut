@@ -8,12 +8,18 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 )
 
 var (
 	_ Shortcut = Cmd{}
 	_ Shortcut = Cmds{}
+)
+
+const (
+	sep     = "|@$|"
+	newline = "|@\n$|"
 )
 
 // Cmd is a shortcut command consisting of a name and arguments.
@@ -26,6 +32,7 @@ type Cmd struct {
 
 // Command returns a new Cmd with the specified name and arguments.
 // If the command fails to initialize, panic with the error.
+// If n < 0, first arg with %s will be treated as a loop argument.
 func Command(name string, n int, arg ...string) *Cmd {
 	cmd := &Cmd{name, n, arg, nil}
 	if err := cmd.test(); err != nil {
@@ -90,8 +97,22 @@ func (c Cmd) test() error {
 // cmd returns an *exec.Cmd with the specified command and arguments.
 // If any arguments are passed, format them into the command's arguments.
 func (c Cmd) cmd(ctx context.Context, a ...any) (*exec.Cmd, []string) {
-	if len(a) != 0 {
-		const sep = "|@$|"
+	if c.n < 0 {
+		index := slices.IndexFunc(c.args, func(s string) bool {
+			return strings.Contains(s, "%s")
+		})
+		var args []string
+		for i, s := range c.args {
+			if i == index {
+				for _, a := range a {
+					args = append(args, fmt.Sprintf(s, a))
+				}
+			} else {
+				args = append(args, s)
+			}
+		}
+		c.args = args
+	} else if len(a) != 0 {
 		args := strings.Join(c.args, sep)
 		args = fmt.Sprintf(args, a...)
 		c.args = strings.Split(args, sep)
@@ -113,7 +134,9 @@ func (c Cmd) Run(a ...any) error {
 
 // RunContext runs the command with the given context and arguments.
 func (c Cmd) RunContext(ctx context.Context, a ...any) error {
-	if args, l := c.Args(), len(a); args != l {
+	if args, l := c.Args(), len(a); args < 0 && l == 0 {
+		return errors.New("loop arguments must have at least one argument")
+	} else if args >= 0 && args != l {
 		return badArgs(args, l)
 	}
 	cmd, env := c.cmd(ctx, a...)
@@ -176,9 +199,16 @@ func (c Cmds) MarshalJSON() ([]byte, error) {
 // cmd processes the list of commands and returns a list of *exec.Cmd
 // objects. If arguments are provided, it substitutes them into the commands.
 func (c Cmds) cmd(ctx context.Context, a ...any) (cmds []*exec.Cmd, envs [][]string) {
+	if l := len(c.cmds); l == 0 {
+		return nil, nil
+	} else if l == 1 {
+		cmd, env := c.cmds[0].cmd(ctx, a...)
+		cmds = append(cmds, cmd)
+		envs = append(envs, env)
+		return
+	}
 	if len(a) != 0 {
 		var args string
-		const sep, newline = "|@$|", "|@\n$|"
 		for i, cmd := range c.cmds {
 			if i != 0 {
 				args += newline
@@ -209,7 +239,14 @@ func (c Cmds) Run(a ...any) error {
 
 // RunContext executes the list of commands with the given context and arguments.
 func (c Cmds) RunContext(ctx context.Context, a ...any) error {
-	if args, l := c.Args(), len(a); args != l {
+	if l := len(c.cmds); l == 0 {
+		return errors.New("empty commands")
+	} else if l == 1 {
+		return c.cmds[0].RunContext(ctx, a...)
+	}
+	if args := c.Args(); args == -1 {
+		return errors.New("commands do not support loop arguments")
+	} else if l := len(a); args != l {
 		return badArgs(args, l)
 	}
 	cmds, envs := c.cmd(ctx, a...)
@@ -224,6 +261,9 @@ func (c Cmds) RunContext(ctx context.Context, a ...any) error {
 
 func (c Cmds) Args() (n int) {
 	for _, i := range c.cmds {
+		if i.n < 0 {
+			return -1
+		}
 		n += i.n
 	}
 	return
