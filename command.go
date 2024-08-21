@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
+	"time"
 )
 
 var (
@@ -140,7 +140,7 @@ func (c Cmd) RunContext(ctx context.Context, a ...any) error {
 		return badArgs(args, l)
 	}
 	cmd, env := c.cmd(ctx, a...)
-	log.Print(cmdString(cmd, env))
+	fmt.Println(timestamp(), cmdString(cmd, env))
 	return cmd.Run()
 }
 
@@ -251,7 +251,7 @@ func (c Cmds) RunContext(ctx context.Context, a ...any) error {
 	}
 	cmds, envs := c.cmd(ctx, a...)
 	for i, cmd := range cmds {
-		log.Print(cmdString(cmd, envs[i]))
+		fmt.Println(timestamp(), cmdString(cmd, envs[i]))
 		if err := cmd.Run(); err != nil {
 			return err
 		}
@@ -295,4 +295,8 @@ func cmdString(cmd *exec.Cmd, env []string) string {
 	}
 	b.WriteString(cmd.String())
 	return b.String()
+}
+
+func timestamp() string {
+	return time.Now().Format("2006/01/02 15:04:05")
 }
