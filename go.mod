@@ -1,5 +1,5 @@
 module github.com/sunshineplan/shortcut
 
-go 1.24
+go 1.25
 
-require github.com/sunshineplan/utils v0.1.82
+require github.com/sunshineplan/utils v0.1.83
